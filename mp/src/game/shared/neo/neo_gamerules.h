@@ -10,6 +10,8 @@
 #include "hl2mp_gamerules.h"
 #include "shareddefs.h"
 
+#include "GameEventListener.h"
+
 #ifndef CLIENT_DLL
 	#include "neo_player.h"
 #endif
@@ -70,7 +72,14 @@ public:
 	}
 };
 
-class CNEORules : public CHL2MPRules
+#ifdef GAME_DLL
+class CNEOGhostCapturePoint;
+class CNEO_Player;
+#else
+class C_NEO_Player;
+#endif
+
+class CNEORules : public CHL2MPRules, public CGameEventListener
 {
 public:
 	DECLARE_CLASS( CNEORules, CHL2MPRules );
@@ -86,14 +95,20 @@ public:
 	virtual ~CNEORules();
 
 #ifdef GAME_DLL
+	virtual void Precache();
+
 	virtual bool ClientConnected(edict_t *pEntity, const char *pszName, const char *pszAddress, char *reject, int maxrejectlen);
+
+	virtual void SetWinningTeam(int team, int iWinReason, bool bForceMapReset = true, bool bSwitchTeams = false, bool bDontAddScore = false, bool bFinal = false);
+
+	virtual void ChangeLevel(void);
 #endif
 	virtual bool ShouldCollide( int collisionGroup0, int collisionGroup1 );
 
 	virtual void Think( void );
 	virtual void CreateStandardEntities( void );
 
-	virtual int WeaponShouldRespawn( CBaseCombatWeapon *pWeapon );
+	virtual int WeaponShouldRespawn(CBaseCombatWeapon* pWeapon);
 
 	virtual const char *GetGameDescription( void );
 	virtual const CViewVectors* GetViewVectors() const;
@@ -102,10 +117,64 @@ public:
 
 	virtual void ClientSettingsChanged(CBasePlayer *pPlayer);
 
+	virtual void ClientSpawned(edict_t* pPlayer);
+
 	float GetMapRemainingTime();
-	void CleanUpMap();
+
+	inline void ResetGhostCapPoints();
+
 	void CheckRestartGame();
+
+	void AwardRankUp(int client);
+#ifdef CLIENT_DLL
+	void AwardRankUp(C_NEO_Player *pClient);
+#else
+	void AwardRankUp(CNEO_Player *pClient);
+#endif
+
+	virtual bool CheckGameOver(void);
+
+	float GetRoundRemainingTime();
+
+	virtual void PlayerKilled(CBasePlayer *pVictim, const CTakeDamageInfo &info);
+
+	// IGameEventListener interface:
+	virtual void FireGameEvent(IGameEvent *event);
+
+#ifdef CLIENT_DLL
+	void CleanUpMap();
 	void RestartGame();
+#else
+	virtual void CleanUpMap();
+	virtual void RestartGame();
+#endif
+
+#ifdef GAME_DLL
+	bool IsRoundOver();
+	void StartNextRound();
+#endif
+
+	enum
+	{
+		NEO_VICTORY_GHOST_CAPTURE = 0,
+		NEO_VICTORY_TEAM_ELIMINATION,
+		NEO_VICTORY_TIMEOUT_WIN_BY_NUMBERS,
+		NEO_VICTORY_FORFEIT,
+		NEO_VICTORY_STALEMATE // Not actually a victory
+	};
+
+#ifdef GAME_DLL
+private:
+	bool m_bFirstRestartIsDone;
+	
+	CUtlVector<int> m_pGhostCaps;
+
+	CNetworkVar(float, m_flNeoRoundStartTime);
+	CNetworkVar(float, m_flNeoNextRoundStartTime);
+#else
+	float m_flNeoRoundStartTime;
+	float m_flNeoNextRoundStartTime;
+#endif
 };
 
 inline CNEORules *NEORules()

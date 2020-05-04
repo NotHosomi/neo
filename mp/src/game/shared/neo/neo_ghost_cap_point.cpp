@@ -1,6 +1,12 @@
 #include "cbase.h"
 #include "neo_ghost_cap_point.h"
 
+#include "neo_player_shared.h"
+
+#ifdef GAME_DLL
+#include "weapon_neobasecombatweapon.h"
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -52,20 +58,43 @@ BEGIN_DATADESC(CNEOGhostCapturePoint)
 	DEFINE_KEYFIELD(m_iOwningTeam, FIELD_INTEGER, "team"),
 END_DATADESC()
 
-#ifdef CLIENT_DLL
-
-#endif
-
 CNEOGhostCapturePoint::CNEOGhostCapturePoint()
 {
-	m_iOwningTeam = TEAM_UNASSIGNED;
 	m_iSuccessfulCaptorClientIndex = 0;
 
-	m_flCapzoneRadius = 0;
-
-	m_bIsActive = false;
+	m_bIsActive = true;
 	m_bGhostHasBeenCaptured = false;
+
+#ifdef CLIENT_DLL
+	m_pHUDCapPoint = NULL;
+#endif
 }
+
+CNEOGhostCapturePoint::~CNEOGhostCapturePoint()
+{
+#ifdef CLIENT_DLL
+	if (m_pHUDCapPoint)
+	{
+		m_pHUDCapPoint->DeletePanel();
+		m_pHUDCapPoint = NULL;
+	}
+#endif
+}
+
+#ifdef GAME_DLL
+bool CNEOGhostCapturePoint::IsGhostCaptured(int& outTeamNumber, int& outCaptorClientIndex)
+{
+	if (m_bIsActive && m_bGhostHasBeenCaptured)
+	{
+		outTeamNumber = m_iOwningTeam;
+		outCaptorClientIndex = m_iSuccessfulCaptorClientIndex;
+
+		return true;
+	}
+
+	return false;
+}
+#endif
 
 void CNEOGhostCapturePoint::Spawn(void)
 {
@@ -131,28 +160,54 @@ void CNEOGhostCapturePoint::Think_CheckMyRadius(void)
 		return;
 	}
 
+	// This round has already ended, we can't be capped into
+	if (NEORules()->GetRoundRemainingTime() < 0)
+	{
+		return;
+	}
+
 	const int checksPerSecond = 10;
 
 	//DevMsg("CNEOGhostCapturePoint::Think_CheckMyRadius\n");
 
 	for (int i = 1; i <= gpGlobals->maxClients; i++)
 	{
-		CBasePlayer *player = UTIL_PlayerByIndex(i);
+		CNEO_Player *player = static_cast<CNEO_Player*>(UTIL_PlayerByIndex(i));
 
 		if (!player)
 		{
 			continue;
 		}
 
+		auto weapon = dynamic_cast<CNEOBaseCombatWeapon*>(player->Weapon_GetSlot(NEO_WEAPON_PRIMARY_SLOT));
+		// NEO FIXME (Rain): we're dynamic casting because not all NT weapons inherit from a neo base wep class yet!
+		// Should fix this and switch to the approach below, instead.
+#if(0)
 		// Do we have a weapon?
-		CBaseCombatWeapon *weapon = player->Weapon_GetSlot(WEAPON_PRIMARY_SLOT);
+#ifdef DEBUG
+		auto baseWeapon = player->Weapon_GetSlot(NEO_WEAPON_PRIMARY_SLOT);
+		if (!baseWeapon)
+		{
+			continue;
+		}
+		// Make sure we're casting appropriately
+		auto weapon = dynamic_cast<CNEOBaseCombatWeapon*>(player->Weapon_GetSlot(NEO_WEAPON_PRIMARY_SLOT));
+		if (!weapon)
+		{
+			Assert(false);
+		}
+#else
+		auto weapon = static_cast<CNEOBaseCombatWeapon*>(player->Weapon_GetSlot(NEO_WEAPON_PRIMARY_SLOT));
+#endif
+#endif
+
 		if (!weapon)
 		{
 			continue;
 		}
 
 		// Is it a ghost?
-		if (V_strcmp(weapon->GetName(), "weapon_ghost") != 0)
+		if (!weapon->IsGhost())
 		{
 			continue;
 		}
@@ -175,7 +230,7 @@ void CNEOGhostCapturePoint::Think_CheckMyRadius(void)
 
 		// Has the ghost carrier reached inside our radius?
 		// NEO TODO (Rain): newbie UI helpers for approaching wrong team cap
-		if (distance >= m_flCapzoneRadius)
+		if (distance >= (m_flCapzoneRadius / 2.0f))
 		{
 			continue;
 		}
@@ -185,6 +240,16 @@ void CNEOGhostCapturePoint::Think_CheckMyRadius(void)
 		m_iSuccessfulCaptorClientIndex = i;
 
 		DevMsg("Player got ghost inside my radius\n");
+
+		player->SendTestMessage("Player captured the ghost!");
+		player->m_iCapTeam = player->GetTeamNumber();
+
+#if(0) // NEO FIXME (Rain), this doesn't play. maybe move to gamerules victory?
+		CRecipientFilter filter;
+		filter.AddAllPlayers();
+		player->EmitSound(filter, SOUND_FROM_UI_PANEL,
+			(player->GetTeamNumber() == TEAM_JINRAI ? "Victory.Jinrai" : "Victory.NSF"));
+#endif
 
 		// Return early; we pass next think responsibility to gamerules,
 		// whenever it sees fit to start capzone thinking again.

@@ -15,6 +15,10 @@
 #include "r_efx.h"
 #include "dlight.h"
 
+#ifdef NEO
+#include "neo_player_shared.h"
+#endif
+
 // Don't alias here
 #if defined( CHL2MP_Player )
 #undef CHL2MP_Player	
@@ -41,9 +45,15 @@ BEGIN_PREDICTION_DATA( C_HL2MP_Player )
 	DEFINE_PRED_FIELD( m_fIsWalking, FIELD_BOOLEAN, FTYPEDESC_INSENDTABLE ),
 END_PREDICTION_DATA()
 
+#ifdef NEO
+#define	HL2_WALK_SPEED NEO_ASSAULT_WALK_SPEED
+#define	HL2_NORM_SPEED NEO_ASSAULT_NORM_SPEED
+#define	HL2_SPRINT_SPEED NEO_ASSAULT_SPRINT_SPEED
+#else
 #define	HL2_WALK_SPEED 150
 #define	HL2_NORM_SPEED 190
 #define	HL2_SPRINT_SPEED 320
+#endif
 
 static ConVar cl_playermodel( "cl_playermodel", "none", FCVAR_USERINFO | FCVAR_ARCHIVE | FCVAR_SERVER_CAN_EXECUTE, "Default Player Model");
 static ConVar cl_defaultweapon( "cl_defaultweapon", "weapon_physcannon", FCVAR_USERINFO | FCVAR_ARCHIVE, "Default Spawn Weapon");
@@ -573,28 +583,42 @@ void C_HL2MP_Player::StartSprinting( void )
 {
 	if( m_HL2Local.m_flSuitPower < 10 )
 	{
-		// Don't sprint unless there's a reasonable
-		// amount of suit power.
+#ifdef NEO
+#if(0)
 		CPASAttenuationFilter filter( this );
 		filter.UsePredictionRules();
 		EmitSound( filter, entindex(), "HL2Player.SprintNoPower" );
+#endif
+#endif
+
+		// Don't sprint unless there's a reasonable
+		// amount of suit power.
 		return;
 	}
 
+#ifdef NEO
+#if(0)
 	CPASAttenuationFilter filter( this );
 	filter.UsePredictionRules();
 	EmitSound( filter, entindex(), "HL2Player.SprintStart" );
+#endif
+#endif
 
+#ifndef NEO
 	SetMaxSpeed( HL2_SPRINT_SPEED );
+#endif
+
 	m_fIsSprinting = true;
 }
-
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 void C_HL2MP_Player::StopSprinting( void )
 {
+#ifndef NEO
 	SetMaxSpeed( HL2_NORM_SPEED );
+#endif
+
 	m_fIsSprinting = false;
 }
 
@@ -649,7 +673,10 @@ void C_HL2MP_Player::HandleSpeedChanges( void )
 //-----------------------------------------------------------------------------
 void C_HL2MP_Player::StartWalking( void )
 {
+#ifndef NEO
 	SetMaxSpeed( HL2_WALK_SPEED );
+#endif
+
 	m_fIsWalking = true;
 }
 
@@ -657,7 +684,10 @@ void C_HL2MP_Player::StartWalking( void )
 //-----------------------------------------------------------------------------
 void C_HL2MP_Player::StopWalking( void )
 {
+#ifndef NEO
 	SetMaxSpeed( HL2_NORM_SPEED );
+#endif
+
 	m_fIsWalking = false;
 }
 

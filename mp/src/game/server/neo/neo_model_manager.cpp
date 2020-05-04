@@ -256,7 +256,7 @@ const char *viewModels[NEO_VM_ENUM_COUNT * numTeams] {
 	"models/gameplay/v_jinrai_ghost.mdl"
 };
 
-const char *weapons[NEO_WEP_ENUM_COUNT] {
+const char *weapons[NEO_WEP_MDL_ENUM_COUNT] {
 	"models/weapons/w_aa13.mdl",
 	"models/weapons/w_detpack.mdl",
 	"models/weapons/w_detremote.mdl",
@@ -360,6 +360,17 @@ void CNEOModelManager::Precache( void ) const
 	CBaseEntity::PrecacheModel("models/player/nsf_gsfanims2.mdl");
 	//CBaseEntity::PrecacheModel("models/player/nsf_nsfanims2.mdl");
 	CBaseEntity::PrecacheModel("models/player/vip_anims.mdl");
+
+	PrecacheMaterial("toc.vmt");
+	PrecacheMaterial("toc2.vmt");
+	PrecacheMaterial("models/player/toc.vmt");
+	PrecacheMaterial("toc_remake_pass1.vmt");
+	PrecacheMaterial("toc_remake_pass2.vmt");
+	PrecacheMaterial("toc_remake_vm.vmt");
+
+	//PrecacheMaterial("water/ntwater_ivy");
+
+	PrecacheMaterial("dev/motion_third.vmt");
 }
 
 static inline int GetTeamArrOffset(int iTeam)
@@ -385,19 +396,33 @@ const char *CNEOModelManager::GetCorpseModel(NeoSkin nSkin, NeoClass nClass,
 	if (index < 0 || index >= ARRAYSIZE(gibs))
 	{
 		Assert(false);
-		return "";
+		return gibs[0];
 	}
 
 	return gibs[index];
 }
 
 // Returns a third person player model.
+// NEO FIXME (Rain): this is sometimes off. Are we indexing incorrectly, or is the cvar logic flawed?
 const char *CNEOModelManager::GetPlayerModel(NeoSkin nSkin,
 	NeoClass nClass, int iTeam) const
 {
 	if (nClass == NEO_CLASS_VIP)
 	{
 		return vipModel;
+	}
+
+	// Unspecified skin number, give a skin randomly.
+	if ((int)nSkin == -1)
+	{
+		nSkin = (NeoSkin)RandomInt(NEO_SKIN_FIRST, NEO_SKIN_THIRD);
+	}
+
+	// We don't know what class this player wants (they probably just joined),
+	// give them an assault model as placeholder.
+	if ((int)nClass == -1)
+	{
+		nClass = NEO_CLASS_ASSAULT;
 	}
 
 	const int index =
@@ -408,7 +433,7 @@ const char *CNEOModelManager::GetPlayerModel(NeoSkin nSkin,
 	if (index < 0 || index >= ARRAYSIZE(playerModels))
 	{
 		Assert(false);
-		return "";
+		return playerModels[0];
 	}
 
 	return playerModels[index];
@@ -427,19 +452,19 @@ const char *CNEOModelManager::GetViewModel(NeoViewmodel nWepVm, int iTeam) const
 	if (index < 0 || index >= ARRAYSIZE(viewModels))
 	{
 		Assert(false);
-		return "";
+		return viewModels[0];
 	}
 
 	return viewModels[index];
 }
 
 // Returns a third person weapon model.
-const char *CNEOModelManager::GetWeaponModel(NeoWeapon nWep) const
+const char *CNEOModelManager::GetWeaponModel(NeoWeaponModel nWep) const
 {
 	if (nWep < 0 || nWep >= ARRAYSIZE(weapons))
 	{
 		Assert(false);
-		return "";
+		return weapons[0];
 	}
 
 	return weapons[nWep];

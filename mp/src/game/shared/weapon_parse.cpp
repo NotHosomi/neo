@@ -73,7 +73,6 @@ itemFlags_t g_ItemFlags[8] =
 extern itemFlags_t g_ItemFlags[8];
 #endif
 
-
 static CUtlDict< FileWeaponInfo_t*, unsigned short > m_WeaponInfoDatabase;
 
 #ifdef _DEBUG
@@ -347,6 +346,10 @@ FileWeaponInfo_t::FileWeaponInfo_t()
 	bShowUsageHint = false;
 	m_bAllowFlipping = true;
 	m_bBuiltRightHanded = true;
+
+#ifdef NEO
+	vecVmOffset = vec3_origin;
+#endif
 }
 
 #ifdef CLIENT_DLL
@@ -362,8 +365,21 @@ void FileWeaponInfo_t::Parse( KeyValues *pKeyValuesData, const char *szWeaponNam
 	Q_strncpy( szClassName, szWeaponName, MAX_WEAPON_STRING );
 	// Printable name
 	Q_strncpy( szPrintName, pKeyValuesData->GetString( "printname", WEAPON_PRINTNAME_MISSING ), MAX_WEAPON_STRING );
-	// View model & world model
-	Q_strncpy( szViewModel, pKeyValuesData->GetString( "viewmodel" ), MAX_WEAPON_STRING );
+
+	// View model
+	Q_strncpy(szViewModel, pKeyValuesData->GetString("viewmodel"), MAX_WEAPON_STRING);
+#ifdef NEO
+	const char *notFoundStr = "notfound";
+	Q_strncpy(szViewModel2, pKeyValuesData->GetString("team2viewmodel", notFoundStr), MAX_WEAPON_STRING);
+	// If there was no NSF viewmodel specified, fall back to Source's default "viewmodel" to ensure we have something sensible available.
+	// This might happen when attempting to equip a non-NT weapon.
+	if (Q_strcmp(szViewModel2, notFoundStr) == 0)
+	{
+		Q_strncpy(szViewModel2, pKeyValuesData->GetString("viewmodel"), MAX_WEAPON_STRING);
+	}
+#endif
+
+	// World model
 	Q_strncpy( szWorldModel, pKeyValuesData->GetString( "playermodel" ), MAX_WEAPON_STRING );
 	Q_strncpy( szAnimationPrefix, pKeyValuesData->GetString( "anim_prefix" ), MAX_WEAPON_PREFIX );
 	iSlot = pKeyValuesData->GetInt( "bucket", 0 );
@@ -404,6 +420,12 @@ void FileWeaponInfo_t::Parse( KeyValues *pKeyValuesData, const char *szWeaponNam
 		}
 	}
 
+#ifdef NEO
+	const float VMOffsetForward = pKeyValuesData->GetFloat("VMOffsetForward");
+	const float VMOffsetRight = pKeyValuesData->GetFloat("VMOffsetRight");
+	const float VMOffsetUp = pKeyValuesData->GetFloat("VMOffsetUp");
+	vecVmOffset = Vector(VMOffsetForward, VMOffsetRight, VMOffsetUp);
+#endif
 
 	bShowUsageHint = ( pKeyValuesData->GetInt( "showusagehint", 0 ) != 0 ) ? true : false;
 	bAutoSwitchTo = ( pKeyValuesData->GetInt( "autoswitchto", 1 ) != 0 ) ? true : false;

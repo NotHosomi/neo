@@ -163,7 +163,8 @@ public:
 	DECLARE_DATADESC();
 
 	CNEOGhostCapturePoint();
-
+	virtual ~CNEOGhostCapturePoint();
+	
 	virtual void Precache(void);
 	virtual void Spawn(void);
 
@@ -172,16 +173,23 @@ public:
 #endif
 
 	void SetActive(bool isActive);
+	void ResetCaptureState()
+	{
+		m_bGhostHasBeenCaptured = false;
+		m_iSuccessfulCaptorClientIndex = 0;
+	}
 
 #ifdef GAME_DLL
 	int ShouldTransmit(const CCheckTransmitInfo *pInfo) { return EF_BRIGHTLIGHT; }
+
+	bool IsGhostCaptured(int &outTeamNumber, int &outCaptorClientIndex);
+#endif
+
+#ifdef GAME_DLL
+	void Think_CheckMyRadius(void); // NEO FIXME (Rain): this should be private
 #endif
 
 private:
-#ifdef GAME_DLL
-	void Think_CheckMyRadius(void);
-#endif
-
 	inline void UpdateVisibility(void);
 
 private:
